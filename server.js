@@ -1,12 +1,16 @@
 // Replace if using a different env file or config
 require("dotenv").config({ path: "./.env" });
+
 const express = require("express");
 const app = express();
+
 const { resolve } = require("path");
 const bodyParser = require("body-parser");
+const morgan = require("morgan");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+app.use(morgan("dev"));
 app.use(express.static(process.env.STATIC_DIR));
 // Use JSON parser for all non-webhook routes
 app.use((req, res, next) => {
@@ -23,17 +27,21 @@ app.get("/", (req, res) => {
 });
 
 app.post("/create-payment-intent", async (req, res) => {
-  const { currency, paymentMethodType } = req.body;
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: 1999,
-      currency,
+      currency: "HNL",
+      payment_method_types: ["card"],
     });
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: error.message });
   }
+});
+
+app.get("/config", (req, res) => {
+  res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY });
 });
 
 // Stripe requires the raw body to construct the event
@@ -54,6 +62,9 @@ app.post(
     }
 
     // Successfully constructed event
+    console.log(event.type);
+    if (event.type === "payment_intent.created") {
+    }
     console.log("✅ Success:", event.id);
 
     // Return a response to acknowledge receipt of the event
